@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morning & Evening - Charles Spurgeon</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#f59e0b">
+    <link rel="apple-touch-icon" href="icon.png">
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        function SpurgeonDevotional() {
+            const [selectedDate, setSelectedDate] = useState('');
+            const [timeOfDay, setTimeOfDay] = useState('morning');
+            const [devotionalText, setDevotionalText] = useState('');
+            const [devotionalTitle, setDevotionalTitle] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [fileContent, setFileContent] = useState(null);
+
+            // Initialize with today's date and time
+            useEffect(() => {
+                const now = new Date();
+                const hours = now.getHours();
+                const dateStr = now.toISOString().split('T')[0];
+                
+                setSelectedDate(dateStr);
+                setTimeOfDay(hours >= 12 ? 'evening' : 'morning');
+                
+                // Load the devotional file
+                loadDevotionalFile();
+            }, []);
+
+            const loadDevotionalFile = async () => {
+                try {
+                    const response = await fetch('devotional.txt');
+                    if (!response.ok) throw new Error('Failed to load file');
+                    const text = await response.text();
+                    setFileContent(text);
+                } catch (err) {
+                    console.error('Error loading devotional file:', err);
+                    setError('Failed to load devotional file. Please refresh the page.');
+                }
+            };
+
+            // Calculate day of year
+            const getDayOfYear = (dateStr) => {
+                if (!dateStr) return 0;
+                const date = new Date(dateStr);
+                const start = new Date(date.getFullYear(), 0, 0);
+                const diff = date - start;
+                const oneDay = 1000 * 60 * 60 * 24;
+                return Math.floor(diff / oneDay);
+            };
+
+            // Check if leap year
+            const isLeapYear = (year) => {
+                return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+            };
+
+            // Get total days in year
+            const getTotalDays = (dateStr) => {
+                if (!dateStr) return 365;
+                const year = new Date(dateStr).getFullYear();
+                return isLeapYear(year) ? 366 : 365;
+            };
+
+            // Parse devotional from text
+            const parseDevotional = (content, monthName, day, period) => {
+                const searchPattern = `${monthName} ${day} ${period}`;
+                const lines = content.split('\n');
+                let foundIndex = -1;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim() === searchPattern) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+                
+                if (foundIndex === -1) return null;
+                
+                let devotionalLines = [];
+                const datePattern = /^(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d+\s+(AM|PM)$/;
+                
+                for (let i = foundIndex + 1; i < lines.length; i++) {
+                    if (datePattern.test(lines[i].trim())) break;
+                    devotionalLines.push(lines[i]);
+                }
+                
+                return devotionalLines.join('\n').trim();
+            };
+
+            // Load devotional when date or time changes
+            useEffect(() => {
+                if (!selectedDate || !fileContent) return;
+
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const date = new Date(selectedDate);
+                    let month = date.getMonth();
+                    let day = date.getDate();
+                    
+                    // Handle Feb 29 - use Feb 28's reading
+                    if (month === 1 && day === 29) {
+                        day = 28;
+                    }
+                    
+                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                                       'July', 'August', 'September', 'October', 'November', 'December'];
+                    const monthName = monthNames[month];
+                    const period = timeOfDay === 'morning' ? 'AM' : 'PM';
+                    
+                    const devotional = parseDevotional(fileContent, monthName, day, period);
+                    
+                    if (!devotional) {
+                        throw new Error('Devotional not found for this date');
+                    }
+                    
+                    const lines = devotional.split('\n').filter(line => line.trim());
+                    const title = lines[0] || '';
+                    const body = lines.slice(1).join('\n\n');
+                    
+                    setDevotionalTitle(title);
+                    setDevotionalText(body);
+                    
+                } catch (err) {
+                    setError('Unable to load devotional for this date.');
+                    console.error(err);
+                } finally {
+                    setLoading(false);
+                }
+            }, [selectedDate, timeOfDay, fileContent]);
+
+            const handleDateChange = (e) => {
+                setSelectedDate(e.target.value);
+            };
+
+            const handleTimeChange = (e) => {
+                setTimeOfDay(e.target.value);
+            };
+
+            const dayOfYear = getDayOfYear(selectedDate);
+            const totalDays = getTotalDays(selectedDate);
+
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+            const currentDate = selectedDate ? new Date(selectedDate) : null;
+            const formattedDate = currentDate ? 
+                `${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}` : '';
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-4 md:p-6">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-lg p-4 md:p-8">
+                            {/* Header */}
+                            <div className="text-center mb-6 md:mb-8">
+                                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+                                    Morning & Evening
+                                </h1>
+                                <p className="text-gray-600 italic text-sm md:text-base">by Charles H. Spurgeon</p>
+                            </div>
+
+                            {/* Controls */}
+                            <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
+                                {/* Date Picker */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        📅 Select Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={handleDateChange}
+                                        className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                    />
+                                </div>
+
+                                {/* Time of Day */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        🕐 Time of Day
+                                    </label>
+                                    <select
+                                        value={timeOfDay}
+                                        onChange={handleTimeChange}
+                                        className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                    >
+                                        <option value="morning">Morning</option>
+                                        <option value="evening">Evening</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Day Counter */}
+                            {selectedDate && (
+                                <div className="bg-amber-100 border-l-4 border-amber-500 p-3 md:p-4 mb-4 md:mb-6">
+                                    <p className="text-amber-900 font-semibold text-center text-sm md:text-base">
+                                        Day {dayOfYear} of {totalDays}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Devotional Header */}
+                            {formattedDate && !loading && !error && devotionalTitle && (
+                                <div className="text-center mb-4">
+                                    <h2 className="text-xl md:text-2xl font-semibold text-gray-800 mb-2">
+                                        {formattedDate} — {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}
+                                    </h2>
+                                    <p className="text-base md:text-lg text-amber-700 italic">{devotionalTitle}</p>
+                                </div>
+                            )}
+
+                            {/* Devotional Content */}
+                            <div className="bg-gray-50 rounded-lg p-4 md:p-6 min-h-[300px] md:min-h-[400px]">
+                                {loading && (
+                                    <div className="text-center text-gray-600">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
+                                        <p className="text-sm md:text-base">Loading devotional...</p>
+                                    </div>
+                                )}
+                                
+                                {error && (
+                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm md:text-base">
+                                        {error}
+                                    </div>
+                                )}
+                                
+                                {!loading && !error && devotionalText && (
+                                    <div className="prose prose-sm md:prose-lg max-w-none">
+                                        <div className="text-gray-800 leading-relaxed whitespace-pre-line text-sm md:text-base">
+                                            {devotionalText}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-4 md:mt-6 text-gray-600 text-xs md:text-sm">
+                            <p>Daily devotional readings from Charles Spurgeon's classic work</p>
+                            <p className="mt-1">First published in 1865</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<SpurgeonDevotional />, document.getElementById('root'));
+    </script>
+</body>
+</html>
