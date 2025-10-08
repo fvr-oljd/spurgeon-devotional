@@ -9,10 +9,94 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#f59e0b">
-    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#78350f">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .serif {
+            font-family: 'Crimson Pro', Georgia, serif;
+        }
+        .devotional-content {
+            font-family: 'Crimson Pro', Georgia, serif;
+            font-size: 1.125rem;
+            line-height: 1.8;
+            letter-spacing: 0.01em;
+        }
+        @media (max-width: 640px) {
+            .devotional-content {
+                font-size: 1.0625rem;
+                line-height: 1.75;
+            }
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fbbf24 100%);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .shadow-custom {
+            box-shadow: 0 10px 40px -10px rgba(120, 53, 15, 0.2);
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(57%) sepia(65%) saturate(430%) hue-rotate(358deg) brightness(92%) contrast(92%);
+            cursor: pointer;
+        }
+        .day-badge {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        }
+        .loading-spinner {
+            border-color: rgba(217, 119, 6, 0.1);
+            border-top-color: #d97706;
+        }
+        .devotional-title {
+            position: relative;
+            display: inline-block;
+        }
+        .devotional-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #d97706, transparent);
+        }
+        select, input[type="date"] {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23d97706'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.25rem;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        input[type="date"] {
+            background-image: none;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .control-card {
+            transition: all 0.2s ease;
+        }
+        .control-card:focus-within {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -5px rgba(120, 53, 15, 0.2);
+        }
+    </style>
 </head>
-<body>
+<body class="gradient-bg min-h-screen">
     <div id="root"></div>
     
     <script type="text/babel">
@@ -26,6 +110,7 @@
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
             const [fileContent, setFileContent] = useState(null);
+            const [showContent, setShowContent] = useState(false);
 
             // Initialize with today's date and time
             useEffect(() => {
@@ -35,8 +120,6 @@
                 
                 setSelectedDate(dateStr);
                 setTimeOfDay(hours >= 12 ? 'evening' : 'morning');
-                
-                // Load the devotional file
                 loadDevotionalFile();
             }, []);
 
@@ -52,7 +135,6 @@
                 }
             };
 
-            // Calculate day of year
             const getDayOfYear = (dateStr) => {
                 if (!dateStr) return 0;
                 const date = new Date(dateStr);
@@ -62,19 +144,16 @@
                 return Math.floor(diff / oneDay);
             };
 
-            // Check if leap year
             const isLeapYear = (year) => {
                 return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
             };
 
-            // Get total days in year
             const getTotalDays = (dateStr) => {
                 if (!dateStr) return 365;
                 const year = new Date(dateStr).getFullYear();
                 return isLeapYear(year) ? 366 : 365;
             };
 
-            // Parse devotional from text
             const parseDevotional = (content, monthName, day, period) => {
                 const searchPattern = `${monthName} ${day} ${period}`;
                 const lines = content.split('\n');
@@ -100,47 +179,49 @@
                 return devotionalLines.join('\n').trim();
             };
 
-            // Load devotional when date or time changes
             useEffect(() => {
                 if (!selectedDate || !fileContent) return;
 
                 setLoading(true);
                 setError('');
+                setShowContent(false);
                 
-                try {
-                    const date = new Date(selectedDate);
-                    let month = date.getMonth();
-                    let day = date.getDate();
-                    
-                    // Handle Feb 29 - use Feb 28's reading
-                    if (month === 1 && day === 29) {
-                        day = 28;
+                setTimeout(() => {
+                    try {
+                        const date = new Date(selectedDate);
+                        let month = date.getMonth();
+                        let day = date.getDate();
+                        
+                        if (month === 1 && day === 29) {
+                            day = 28;
+                        }
+                        
+                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                                           'July', 'August', 'September', 'October', 'November', 'December'];
+                        const monthName = monthNames[month];
+                        const period = timeOfDay === 'morning' ? 'AM' : 'PM';
+                        
+                        const devotional = parseDevotional(fileContent, monthName, day, period);
+                        
+                        if (!devotional) {
+                            throw new Error('Devotional not found for this date');
+                        }
+                        
+                        const lines = devotional.split('\n').filter(line => line.trim());
+                        const title = lines[0] || '';
+                        const body = lines.slice(1).join('\n\n');
+                        
+                        setDevotionalTitle(title);
+                        setDevotionalText(body);
+                        setShowContent(true);
+                        
+                    } catch (err) {
+                        setError('Unable to load devotional for this date.');
+                        console.error(err);
+                    } finally {
+                        setLoading(false);
                     }
-                    
-                    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                                       'July', 'August', 'September', 'October', 'November', 'December'];
-                    const monthName = monthNames[month];
-                    const period = timeOfDay === 'morning' ? 'AM' : 'PM';
-                    
-                    const devotional = parseDevotional(fileContent, monthName, day, period);
-                    
-                    if (!devotional) {
-                        throw new Error('Devotional not found for this date');
-                    }
-                    
-                    const lines = devotional.split('\n').filter(line => line.trim());
-                    const title = lines[0] || '';
-                    const body = lines.slice(1).join('\n\n');
-                    
-                    setDevotionalTitle(title);
-                    setDevotionalText(body);
-                    
-                } catch (err) {
-                    setError('Unable to load devotional for this date.');
-                    console.error(err);
-                } finally {
-                    setLoading(false);
-                }
+                }, 300);
             }, [selectedDate, timeOfDay, fileContent]);
 
             const handleDateChange = (e) => {
@@ -161,41 +242,46 @@
                 `${monthNames[currentDate.getMonth()]} ${currentDate.getDate()}` : '';
 
             return (
-                <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 p-4 md:p-6">
-                    <div className="max-w-4xl mx-auto">
-                        <div className="bg-white rounded-lg shadow-lg p-4 md:p-8">
-                            {/* Header */}
-                            <div className="text-center mb-6 md:mb-8">
-                                <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+                <div className="min-h-screen p-4 md:p-8 py-6 md:py-12">
+                    <div className="max-w-3xl mx-auto">
+                        {/* Header */}
+                        <div className="text-center mb-8 md:mb-12">
+                            <div className="inline-block">
+                                <h1 className="serif text-5xl md:text-6xl font-bold text-amber-950 mb-3 tracking-tight">
                                     Morning & Evening
                                 </h1>
-                                <p className="text-gray-600 italic text-sm md:text-base">by Charles H. Spurgeon</p>
+                                <div className="h-1 w-24 mx-auto bg-gradient-to-r from-transparent via-amber-700 to-transparent mb-3"></div>
+                                <p className="text-amber-800 text-sm md:text-base tracking-wide uppercase font-medium">
+                                    Charles Haddon Spurgeon
+                                </p>
                             </div>
+                        </div>
 
-                            {/* Controls */}
-                            <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
+                        {/* Controls Card */}
+                        <div className="glass-effect rounded-2xl shadow-custom p-6 md:p-8 mb-6">
+                            <div className="grid md:grid-cols-2 gap-5">
                                 {/* Date Picker */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        📅 Select Date
+                                <div className="control-card">
+                                    <label className="block text-sm font-semibold text-amber-900 mb-3 tracking-wide">
+                                        📅 DATE
                                     </label>
                                     <input
                                         type="date"
                                         value={selectedDate}
                                         onChange={handleDateChange}
-                                        className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        className="w-full px-4 py-3.5 text-base bg-white border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-amber-900 font-medium"
                                     />
                                 </div>
 
                                 {/* Time of Day */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        🕐 Time of Day
+                                <div className="control-card">
+                                    <label className="block text-sm font-semibold text-amber-900 mb-3 tracking-wide">
+                                        ☀️ READING
                                     </label>
                                     <select
                                         value={timeOfDay}
                                         onChange={handleTimeChange}
-                                        className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                        className="w-full px-4 py-3.5 text-base bg-white border-2 border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all text-amber-900 font-medium cursor-pointer"
                                     >
                                         <option value="morning">Morning</option>
                                         <option value="evening">Evening</option>
@@ -205,41 +291,46 @@
 
                             {/* Day Counter */}
                             {selectedDate && (
-                                <div className="bg-amber-100 border-l-4 border-amber-500 p-3 md:p-4 mb-4 md:mb-6">
-                                    <p className="text-amber-900 font-semibold text-center text-sm md:text-base">
-                                        Day {dayOfYear} of {totalDays}
+                                <div className="mt-5">
+                                    <div className="day-badge text-white px-5 py-3 rounded-xl text-center font-semibold text-sm tracking-wide shadow-lg">
+                                        DAY {dayOfYear} OF {totalDays}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Devotional Content Card */}
+                        <div className="glass-effect rounded-2xl shadow-custom p-6 md:p-10">
+                            {/* Devotional Header */}
+                            {formattedDate && !loading && !error && devotionalTitle && (
+                                <div className="text-center mb-8 fade-in">
+                                    <h2 className="serif text-2xl md:text-3xl font-bold text-amber-950 mb-4 devotional-title pb-3">
+                                        {formattedDate}
+                                    </h2>
+                                    <p className="serif text-xl md:text-2xl text-amber-800 italic font-semibold leading-relaxed">
+                                        {devotionalTitle}
                                     </p>
                                 </div>
                             )}
 
-                            {/* Devotional Header */}
-                            {formattedDate && !loading && !error && devotionalTitle && (
-                                <div className="text-center mb-4">
-                                    <h2 className="text-xl md:text-2xl font-semibold text-gray-800 mb-2">
-                                        {formattedDate} — {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}
-                                    </h2>
-                                    <p className="text-base md:text-lg text-amber-700 italic">{devotionalTitle}</p>
-                                </div>
-                            )}
-
-                            {/* Devotional Content */}
-                            <div className="bg-gray-50 rounded-lg p-4 md:p-6 min-h-[300px] md:min-h-[400px]">
+                            {/* Content Area */}
+                            <div className="min-h-[350px] md:min-h-[450px]">
                                 {loading && (
-                                    <div className="text-center text-gray-600">
-                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
-                                        <p className="text-sm md:text-base">Loading devotional...</p>
+                                    <div className="flex flex-col items-center justify-center h-[350px] md:h-[450px]">
+                                        <div className="loading-spinner rounded-full h-14 w-14 border-4 border-t-4 animate-spin mb-4"></div>
+                                        <p className="text-amber-700 font-medium">Loading devotional...</p>
                                     </div>
                                 )}
                                 
                                 {error && (
-                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm md:text-base">
+                                    <div className="bg-red-50 border-2 border-red-300 text-red-800 px-5 py-4 rounded-xl text-sm md:text-base font-medium">
                                         {error}
                                     </div>
                                 )}
                                 
                                 {!loading && !error && devotionalText && (
-                                    <div className="prose prose-sm md:prose-lg max-w-none">
-                                        <div className="text-gray-800 leading-relaxed whitespace-pre-line text-sm md:text-base">
+                                    <div className={`devotional-content text-amber-950 ${showContent ? 'fade-in' : ''}`}>
+                                        <div className="whitespace-pre-line leading-relaxed">
                                             {devotionalText}
                                         </div>
                                     </div>
@@ -248,9 +339,9 @@
                         </div>
 
                         {/* Footer */}
-                        <div className="text-center mt-4 md:mt-6 text-gray-600 text-xs md:text-sm">
-                            <p>Daily devotional readings from Charles Spurgeon's classic work</p>
-                            <p className="mt-1">First published in 1865</p>
+                        <div className="text-center mt-8 text-amber-800 text-xs md:text-sm space-y-1">
+                            <p className="font-medium">Daily readings from Spurgeon's beloved classic</p>
+                            <p className="text-amber-700">First published 1865 · Public Domain</p>
                         </div>
                     </div>
                 </div>
@@ -258,6 +349,16 @@
         }
 
         ReactDOM.render(<SpurgeonDevotional />, document.getElementById('root'));
+    </script>
+    
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
     </script>
 </body>
 </html>
